@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>測驗產生器</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        #creator-container {
+            margin-bottom: 30px;
+        }
+        .question-block {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .question-block input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            margin: 4px 0;
+            box-sizing: border-box;
+        }
+        .question-block select {
+            width: 100%;
+            padding: 8px;
+            margin: 4px 0;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 10px 15px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #buttons-container {
+            margin: 20px 0;
+        }
+        
+        /* 測驗頁面樣式 */
+        #quiz-container {
+            display: none;
+        }
+        #quiz-container .question {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        #quiz-container .options label {
+            display: block;
+            margin: 5px 0;
+            padding: 5px;
+            cursor: pointer;
+        }
+        #quiz-container .options label:hover {
+            background-color: #f0f0f0;
+        }
+        .submit-bar {
+            position: sticky;
+            top: 0;
+            background: white;
+            padding: 10px 0;
+            z-index: 10;
+            text-align: right;
+        }
+        .correct {
+            color: green;
+            font-weight: bold;
+        }
+        .wrong {
+            color: red;
+            font-weight: bold;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .explanation {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .back-to-edit {
+            margin-top: 20px;
+        }
+        .custom-answer {
+            margin-top: 5px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="creator-container">
+        <h1>測驗產生器</h1>
+        <div id="questions-container"></div>
+
+        <div id="buttons-container">
+            <button id="add-question-btn">新增一題</button>
+            <button id="generate-quiz-btn">產生測驗介面</button>
+        </div>
+    </div>
+
+    <div id="quiz-container">
+        <div class="submit-bar">
+            <button onclick="submitQuiz()">送出答案</button>
+            <button onclick="backToEdit()" class="back-to-edit">返回編輯</button>
+        </div>
+
+        <h2 style="border-bottom: none; padding-bottom: 0;">測驗題目</h2>
+        <form id="quizForm"></form>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        let questionCount = 0;
+        let quizData = [];
+
+        function addQuestion() {
+            questionCount++;
+            const container = document.getElementById('questions-container');
+            const questionBlock = document.createElement('div');
+            questionBlock.className = 'question-block';
+
+            questionBlock.innerHTML = `
+                <h3>第 ${questionCount} 題</h3>
+                <label>題目：</label>
+                <input type="text" id="question-${questionCount}" placeholder="">
+                
+                <label>選項 A：</label>
+                <input type="text" id="option-A-${questionCount}" placeholder="">
+                
+                <label>選項 B：</label>
+                <input type="text" id="option-B-${questionCount}" placeholder="">
+                
+                <label>選項 C：</label>
+                <input type="text" id="option-C-${questionCount}" placeholder="">
+                
+                <label>選項 D：</label>
+                <input type="text" id="option-D-${questionCount}" placeholder="">
+                
+                <label>正確答案：</label>
+                <select id="answer-type-${questionCount}" onchange="toggleCustomAnswer(${questionCount})">
+                    <option value="" selected>-- 請選擇 --</option>
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                    <option value="C">C</option>
+                    <option value="D">D</option>
+                    <option value="other">其他</option>
+                </select>
+                <input type="text" id="custom-answer-${questionCount}" class="custom-answer" placeholder="輸入答案 (如: AB、AC、送分)">
+                
+                <label>詳解：</label>
+                <input type="text" id="explanation-${questionCount}" placeholder="">
+            `;
+
+            container.appendChild(questionBlock);
+        }
+
+        function toggleCustomAnswer(questionNum) {
+            const select = document.getElementById(`answer-type-${questionNum}`);
+            const customAnswer = document.getElementById(`custom-answer-${questionNum}`);
+            customAnswer.style.display = select.value === 'other' ? 'block' : 'none';
+        }
+
+        function generateQuiz() {
+            quizData = [];
+            
+            for (let i = 1; i <= questionCount; i++) {
+                const question = document.getElementById(`question-${i}`).value || `第 ${i} 題`;
+                const optionA = document.getElementById(`option-A-${i}`).value;
+                const optionB = document.getElementById(`option-B-${i}`).value;
+                const optionC = document.getElementById(`option-C-${i}`).value;
+                const optionD = document.getElementById(`option-D-${i}`).value;
+                
+                const answerType = document.getElementById(`answer-type-${i}`).value;
+                let correctAnswer = answerType;
+                if (answerType === 'other') {
+                    correctAnswer = document.getElementById(`custom-answer-${i}`).value.toUpperCase();
+                } else if (answerType === '') {
+                    correctAnswer = ''; // 空白表示沒有設定正確答案
+                }
+                
+                const explanation = document.getElementById(`explanation-${i}`).value;
+
+                // 收集非空選項並保持原始順序
+                const options = [];
+                const optionValues = {};
+                
+                if (optionA) {
+                    options.push({letter: 'A', text: optionA});
+                    optionValues['A'] = optionA;
+                }
+                if (optionB) {
+                    options.push({letter: 'B', text: optionB});
+                    optionValues['B'] = optionB;
+                }
+                if (optionC) {
+                    options.push({letter: 'C', text: optionC});
+                    optionValues['C'] = optionC;
+                }
+                if (optionD) {
+                    options.push({letter: 'D', text: optionD});
+                    optionValues['D'] = optionD;
+                }
+
+                quizData.push({
+                    question: question,
+                    options: options,
+                    optionValues: optionValues,
+                    answer: correctAnswer,
+                    explanation: explanation
+                });
+            }
+
+            // 生成測驗表單
+            const quizForm = document.getElementById("quizForm");
+            quizForm.innerHTML = "";
+            
+            quizData.forEach((q, index) => {
+                // 如果沒有題目和選項，則跳過
+                if (!q.question && q.options.length === 0) return;
+                
+                const div = document.createElement("div");
+                div.classList.add("question");
+                
+                // 顯示題目
+                div.innerHTML = `<p>${index + 1}. ${q.question}</p>`;
+                
+                // 顯示選項（保持原始順序）
+                q.options.forEach((opt) => {
+                    div.innerHTML += `
+                        <div class="options">
+                            <label>
+                                <input type="radio" name="q${index}" value="${opt.letter}"> 
+                                ${opt.letter}: ${opt.text}
+                            </label>
+                        </div>`;
+                });
+                
+                quizForm.appendChild(div);
+            });
+
+            // 切換顯示模式
+            document.getElementById("creator-container").style.display = "none";
+            document.getElementById("quiz-container").style.display = "block";
+            document.getElementById("result").innerHTML = "";
+            
+            // 滾動到頂部
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+
+        function submitQuiz() {
+            let score = 0;
+            let totalScorableQuestions = 0;
+            let resultHTML = "<h3>測驗結果：</h3><ol>";
+            
+            quizData.forEach((q, index) => {
+                if (!q.question && q.options.length === 0) return;
+                
+                const selected = document.querySelector(`input[name="q${index}"]:checked`);
+                const userAnswer = selected ? selected.value : null;
+                
+                resultHTML += `<li><p>${q.question}</p>`;
+                
+                // 只有當有設定正確答案時才計分
+                if (q.answer && q.answer !== '') {
+                    totalScorableQuestions++;
+                    
+                    let isCorrect = false;
+                    
+                    // 處理送分情況
+                    if (q.answer.toUpperCase() === "送分") {
+                        isCorrect = userAnswer !== null;
+                    } 
+                    // 處理複選情況
+                    else if (q.answer.length > 1) {
+                        isCorrect = userAnswer && q.answer.toUpperCase().includes(userAnswer);
+                    }
+                    // 處理單選情況
+                    else {
+                        isCorrect = userAnswer === q.answer;
+                    }
+                    
+                    if (isCorrect) {
+                        score++;
+                        resultHTML += `<p><span class="correct">✓ 正確</span></p>`;
+                    } else if (userAnswer) {
+                        resultHTML += `<p><span class="wrong">✗ 錯誤</span></p>`;
+                        resultHTML += `<p>正確答案: ${q.answer}</p>`;
+                    } else {
+                        resultHTML += `<p><span class="wrong">未作答</span></p>`;
+                        resultHTML += `<p>正確答案: ${q.answer}</p>`;
+                    }
+                } else {
+                    if (userAnswer) {
+                        resultHTML += `<p>你的選擇: ${userAnswer}</p>`;
+                    } else {
+                        resultHTML += `<p>未作答</p>`;
+                    }
+                }
+                
+                if (q.explanation) {
+                    resultHTML += `<div class="explanation">${q.explanation}</div>`;
+                }
+                
+                resultHTML += `</li>`;
+            });
+            
+            resultHTML += `</ol>`;
+            
+            if (totalScorableQuestions > 0) {
+                resultHTML += `<h4>得分：${score} / ${totalScorableQuestions}</h4>`;
+            }
+            
+            document.getElementById("result").innerHTML = resultHTML;
+            document.getElementById("result").scrollIntoView({ behavior: "smooth" });
+        }
+
+        function backToEdit() {
+            document.getElementById("creator-container").style.display = "block";
+            document.getElementById("quiz-container").style.display = "none";
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+
+        // 綁定按鈕事件
+        document.getElementById('add-question-btn').addEventListener('click', addQuestion);
+        document.getElementById('generate-quiz-btn').addEventListener('click', generateQuiz);
+
+        // 預設先新增一題
+        addQuestion();
+    </script>
+</body>
+</html>
