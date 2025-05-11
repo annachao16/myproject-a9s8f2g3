@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>測驗產生器</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .input-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        textarea {
+            width: 100%;
+            min-height: 150px;
+            padding: 8px;
+            margin: 4px 0;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 10px 15px;
+            font-size: 16px;
+            cursor: pointer ;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #quiz-container {
+            display: none;
+        }
+        #quiz-container .question {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        #quiz-container .options label {
+            display: block;
+            margin: 5px 0;
+            padding: 5px;
+            cursor: pointer;
+        }
+        #quiz-container .options label:hover {
+            background-color: #f0f0f0;
+        }
+        .submit-bar {
+            position: sticky;
+            top: 0;
+            background: white;
+            padding: 10px 0;
+            z-index: 10;
+            text-align: right;
+        }
+        .correct {
+            color: green;
+            font-weight: bold;
+        }
+        .wrong {
+            color: red;
+            font-weight: bold;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .explanation {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .back-to-edit {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="creator-container">
+        <h1>測驗產生器</h1>
+        
+        <div class="input-section">
+            <h3>題目輸入</h3>
+            <textarea id="questions-input" placeholder="請輸入題目，範例格式：
+1. 題目內容
+(A)選項A (B)選項B (C)選項C (D)選項D
+2. 題目內容
+(A)選項A
+(B)選項B
+(C)選項C
+(D)選項D"></textarea>
+        </div>
+
+        <div class="input-section">
+            <h3>答案輸入</h3>
+            <textarea id="answers-input" placeholder="請輸入答案，範例格式：
+1~4. BDAC 5. BC
+或
+1.B 2.D 3.A 4.C 5.BC"></textarea>
+        </div>
+
+        <div class="input-section">
+            <h3>詳解輸入（選填）</h3>
+            <textarea id="explanations-input" placeholder="請輸入詳解，範例格式：
+1. 詳解內容
+3. 詳解內容
+5. 詳解內容"></textarea>
+        </div>
+
+        <button id="generate-quiz-btn">產生測驗介面</button>
+    </div>
+
+    <div id="quiz-container">
+        <div class="submit-bar">
+            <button onclick="submitQuiz()">送出答案</button>
+            <button onclick="backToEdit()" class="back-to-edit">返回編輯</button>
+        </div>
+
+        <h2 style="border-bottom: none; padding-bottom: 0;">測驗題目</h2>
+        <form id="quizForm"></form>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        let quizData = [];
+
+        function parseQuestions(text) {
+            const questions = [];
+            const lines = text.replace(/\r\n/g, '\n').split('\n');
+            let currentQuestion = null;
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+                
+                // 匹配題號和題目內容
+                const questionMatch = line.match(/^(\d+)\.\s*(.*)/);
+                if (questionMatch) {
+                    if (currentQuestion) questions.push(currentQuestion);
+                    currentQuestion = {
+                        number: parseInt(questionMatch[1]),
+                        text: questionMatch[2] || '',
+                        options: []
+                    };
+                    
+                    // 檢查同一行是否有選項
+                    const remainingText = line.slice(questionMatch[0].length).trim();
+                    if (remainingText) extractOptions(remainingText, currentQuestion);
+                    continue;
+                }
+                
+                // 處理選項行
+                if (currentQuestion) {
+                    // 檢查是否為選項行（至少有一個(A)之類的格式）
+                    if (/\([A-D]\)/.test(line)) {
+                        extractOptions(line, currentQuestion);
+                    } 
+                    // 否則作為題目內容的延續
+                    else {
+                        currentQuestion.text += '\n' + line;
+                    }
+                }
+            }
+            
+            if (currentQuestion) questions.push(currentQuestion);
+            return questions.sort((a, b) => a.number - b.number);
+            
+            function extractOptions(line, question) {
+                let remaining = line;
+                const optionRegex = /\(([A-D])\)([^\(]*)/g;
+                let match;
+                
+                while ((match = optionRegex.exec(line)) !== null) {
+                    const letter = match[1];
+                    const content = match[2].trim();
+                    
+                    question.options.push({
+                        letter: letter,
+                        text: content
+                    });
+                }
+                
+                // 如果沒有匹配到任何選項（可能格式不標準），嘗試其他方式解析
+                if (question.options.length === 0 && line.includes(")")) {
+                    const parts = line.split(")");
+                    for (let i = 0; i < parts.length - 1; i++) {
+                        const part = parts[i];
+                        const letterMatch = part.match(/\(\s*([A-D])\s*$/);
+                        if (letterMatch) {
+                            const letter = letterMatch[1];
+                            let content = parts[i+1].trim();
+                            // 檢查下一個部分是否以選項開頭，如果是則只取到選項前的內容
+                            const nextOption = content.match(/^\s*\([A-D]\)/);
+                            if (nextOption) {
+                                content = content.substring(0, content.indexOf(nextOption[0])).trim();
+                            }
+                            if (content) {
+                                question.options.push({
+                                    letter: letter,
+                                    text: content
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        function parseAnswers(text) {
+            const answers = {};
+            if (!text.trim()) return answers;
+            
+            // 處理 1. B, 2. D 或 1.B,2.D 格式
+            const singlePattern = /(\d+)\.?\s*([A-D]+|送分)/g;
+            let singleMatch;
+            
+            while ((singleMatch = singlePattern.exec(text)) !== null) {
+                const num = parseInt(singleMatch[1]);
+                const answer = singleMatch[2].toUpperCase();
+                answers[num] = answer;
+            }
+            
+            // 處理範圍 1-4. BDAC 或 1~4. ABCD 格式
+            const rangePattern = /(\d+)[-~](\d+)\.?\s*([A-D]+)/g;
+            let rangeMatch;
+            
+            while ((rangeMatch = rangePattern.exec(text)) !== null) {
+                const start = parseInt(rangeMatch[1]);
+                const end = parseInt(rangeMatch[2]);
+                const answerStr = rangeMatch[3].toUpperCase();
+                
+                for (let i = start; i <= end; i++) {
+                    const index = i - start;
+                    if (index < answerStr.length) {
+                        answers[i] = answerStr[index];
+                    } else {
+                        // 如果範圍答案不夠分配，則重複使用最後一個答案
+                        answers[i] = answerStr[answerStr.length - 1];
+                    }
+                }
+            }
+            
+            return answers;
+        }
+
+        function parseExplanations(text) {
+            const explanations = {};
+            const lines = text.split('\n');
+            let currentNumber = null;
+            let currentExplanation = '';
+            
+            for (const line of lines) {
+                const trimmedLine = line.trim();
+                if (!trimmedLine) continue;
+                
+                const numberMatch = trimmedLine.match(/^(\d+)\.\s*(.*)/);
+                if (numberMatch) {
+                    if (currentNumber !== null) {
+                        explanations[currentNumber] = currentExplanation.trim();
+                    }
+                    currentNumber = parseInt(numberMatch[1]);
+                    currentExplanation = numberMatch[2] || '';
+                    continue;
+                }
+                
+                if (currentNumber !== null) {
+                    currentExplanation += '\n' + trimmedLine;
+                }
+            }
+            
+            if (currentNumber !== null) {
+                explanations[currentNumber] = currentExplanation.trim();
+            }
+            
+            return explanations;
+        }
+
+        function generateQuiz() {
+            try {
+                const questionsText = document.getElementById('questions-input').value;
+                const answersText = document.getElementById('answers-input').value;
+                const explanationsText = document.getElementById('explanations-input').value;
+                
+                const rawQuestions = parseQuestions(questionsText);
+                const answers = parseAnswers(answersText);
+                const explanations = parseExplanations(explanationsText);
+                
+                // 合併相同字母的選項並排序
+                quizData = rawQuestions.map(q => {
+                    const answer = answers[q.number] || '';
+                    const explanation = explanations[q.number] || '';
+                    
+                    const optionsMap = {};
+                    q.options.forEach(opt => {
+                        if (!optionsMap[opt.letter]) {
+                            optionsMap[opt.letter] = opt;
+                        } else {
+                            optionsMap[opt.letter].text += '\n' + opt.text;
+                        }
+                    });
+                    
+                    const sortedOptions = ['A','B','C','D']
+                        .filter(letter => optionsMap[letter])
+                        .map(letter => optionsMap[letter]);
+                    
+                    // 如果選項為空，嘗試從問題文本中提取
+                    if (sortedOptions.length === 0 && q.text.includes("(A)")) {
+                        const optionsText = q.text.split(/(\([A-D]\))/g);
+                        for (let i = 1; i < optionsText.length; i += 2) {
+                            const letter = optionsText[i].charAt(1);
+                            const text = optionsText[i+1] ? optionsText[i+1].trim() : '';
+                            if (text) {
+                                sortedOptions.push({ letter, text });
+                            }
+                        }
+                    }
+                    
+                    return {
+                        number: q.number,
+                        question: q.text.replace(/\([A-D]\)[^\(]*/g, '').trim(),  // 移除問題中可能包含的選項部分
+                        options: sortedOptions,
+                        answer: answer,
+                        explanation: explanation
+                    };
+                }).sort((a, b) => a.number - b.number);
+                
+                const quizForm = document.getElementById("quizForm");
+                quizForm.innerHTML = "";
+                
+                quizData.forEach((q, i) => {
+                    const div = document.createElement("div");
+                    div.classList.add("question");
+                    div.innerHTML = `<p><strong>${q.number}.</strong> ${q.question.replace(/\n/g, '<br>')}</p>`;
+                    
+                    if (q.options.length === 0) {
+                        div.innerHTML += `<p style="color:red;">警告：此題沒有找到選項</p>`;
+                    } else {
+                        q.options.forEach(opt => {
+                            div.innerHTML += `
+                                <div class="options">
+                                    <label>
+                                        <input type="radio" name="q${i}" value="${opt.letter}"> 
+                                        ${opt.letter}: ${opt.text.replace(/\n/g, '<br>')}
+                                    </label>
+                                </div>`;
+                        });
+                    }
+                    
+                    quizForm.appendChild(div);
+                });
+
+                document.getElementById("creator-container").style.display = "none";
+                document.getElementById("quiz-container").style.display = "block";
+                document.getElementById("result").innerHTML = "";
+                window.scrollTo({ top: 0, behavior: "smooth" });
+            } catch (error) {
+                alert("產生測驗時發生錯誤：" + error.message);
+                console.error(error);
+            }
+        }
+
+        function submitQuiz() {
+            let score = 0;
+            let totalScorableQuestions = 0;
+            let resultHTML = "<h3>測驗結果：</h3><ol>";
+            
+            quizData.forEach((q, i) => {
+                const selected = document.querySelector(`input[name="q${i}"]:checked`);
+                const userAnswer = selected ? selected.value : "";
+                
+                resultHTML += `<li><p>${q.question.replace(/\n/g, '<br>')}</p>`;
+                resultHTML += userAnswer ? `<p>你的選擇: ${userAnswer}</p>` : `<p>未作答</p>`;
+                
+                if (q.answer) {
+                    totalScorableQuestions++;
+                    let isCorrect;
+                    
+                    if (q.answer === "送分") {
+                        isCorrect = true;
+                        score++;
+                        resultHTML += `<p><span class="correct">✓ 送分</span></p>`;
+                    } else {
+                        // 處理多重選擇的情況（如 "AB"）
+                        const correctAnswers = q.answer.split('');
+                        isCorrect = correctAnswers.some(a => a === userAnswer);
+                        
+                        if (isCorrect) {
+                            score++;
+                            resultHTML += `<p><span class="correct">✓ 正確</span> (答案: ${q.answer})</p>`;
+                        } else if (userAnswer) {
+                            resultHTML += `<p><span class="wrong">✗ 錯誤</span> (答案: ${q.answer})</p>`;
+                        } else {
+                            resultHTML += `<p>答案: ${q.answer}</p>`;
+                        }
+                    }
+                }
+                
+                if (q.explanation) {
+                    resultHTML += `<div class="explanation">詳解：${q.explanation.replace(/\n/g, '<br>')}</div>`;
+                }
+                
+                resultHTML += `</li>`;
+            });
+            
+            resultHTML += `</ol>`;
+            
+            if (totalScorableQuestions > 0) {
+                const percentage = Math.round((score / totalScorableQuestions) * 100);
+                resultHTML += `<h4>得分：${score} / ${totalScorableQuestions} (${percentage}%)</h4>`;
+            }
+            
+            document.getElementById("result").innerHTML = resultHTML;
+            document.getElementById("result").scrollIntoView({ behavior: "smooth" });
+        }
+
+        function backToEdit() {
+            document.getElementById("creator-container").style.display = "block";
+            document.getElementById("quiz-container").style.display = "none";
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+
+        document.getElementById('generate-quiz-btn').addEventListener('click', generateQuiz);
+    </script>
+</body>
+</html>
