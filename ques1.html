@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>測驗產生器</title>
     <style>
+        /* 保持原有的CSS樣式不變 */
         body {
             font-family: Arial, sans-serif;
             max-width: 800px;
@@ -513,16 +514,23 @@
             return questions.sort((a, b) => a.number - b.number);
             
             function extractOptions(line, question) {
-                const optionRegex = /\(([A-D])\)([^\(]*)/g;
+                // 改進的選項解析邏輯，能正確處理選項內容中的括號
+                const optionRegex = /\(([A-D])\)([^\(]*(?:\([^\)]*\)[^\(]*)*)/g;
                 let match;
                 
                 while ((match = optionRegex.exec(line)) !== null) {
-                    question.options.push({
-                        letter: match[1],
-                        text: match[2].trim()
-                    });
+                    const letter = match[1];
+                    const text = match[2].trim();
+                    
+                    if (text) {
+                        question.options.push({
+                            letter: letter,
+                            text: text
+                        });
+                    }
                 }
                 
+                // 處理沒有匹配到的情況（可能是格式不標準）
                 if (question.options.length === 0 && line.includes(")")) {
                     const parts = line.split(")");
                     for (let i = 0; i < parts.length - 1; i++) {
@@ -647,7 +655,7 @@
                     
                     return {
                         number: q.number,
-                        question: q.text.replace(/\([A-D]\)[^\(]*/g, '').trim(),
+                        question: q.text,
                         options: sortedOptions,
                         answer: answers[q.number] || '',
                         explanation: explanations[q.number] || ''
