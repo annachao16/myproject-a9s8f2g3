@@ -133,6 +133,18 @@
         .sync-error {
             color: red;
         }
+        .notes-section {
+            margin-top: 15px;
+        }
+        .notes-section textarea {
+            width: 100%;
+            min-height: 60px;
+            padding: 8px;
+            margin-top: 5px;
+            box-sizing: border-box;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
     </style>
 </head>
 <body>
@@ -209,6 +221,7 @@
             quizData: [],
             currentQuizId: null,
             userAnswers: {},
+            userNotes: {},
             lastEdit: null,
             currentQuizContent: null
         };
@@ -240,9 +253,11 @@
                     state.quizData = data.quizData;
                     state.currentQuizContent = data.content;
                     
-                    // 載入作答記錄
+                    // 載入作答記錄和筆記
                     const allAnswers = JSON.parse(localStorage.getItem('quizAnswers') || '{}');
+                    const allNotes = JSON.parse(localStorage.getItem('quizNotes') || '{}');
                     state.userAnswers = allAnswers[state.currentQuizId] || {};
+                    state.userNotes = allNotes[state.currentQuizId] || {};
                     
                     // 顯示測驗介面
                     showQuizContainer();
@@ -280,6 +295,7 @@
                 div.classList.add("question");
                 
                 const savedAnswer = state.userAnswers[q.number];
+                const savedNote = state.userNotes[q.number] || "";
                 
                 div.innerHTML = `<p><strong>${q.number}.</strong> ${q.question.replace(/\n/g, '<br>')}</p>`;
                 
@@ -298,6 +314,14 @@
                     });
                 }
                 
+                // 添加筆記區域
+                div.innerHTML += `
+                    <div class="notes-section">
+                        <label for="note-${q.number}">筆記：</label>
+                        <textarea id="note-${q.number}" placeholder="在此輸入你的筆記...">${savedNote}</textarea>
+                    </div>
+                `;
+                
                 quizForm.appendChild(div);
             });
             
@@ -307,6 +331,15 @@
                     const questionNumber = this.name.substring(1);
                     state.userAnswers[questionNumber] = this.value;
                     saveAnswerRecord();
+                });
+            });
+            
+            // 添加筆記事件監聽器
+            document.querySelectorAll('.notes-section textarea').forEach(textarea => {
+                const questionNumber = textarea.id.split('-')[1];
+                textarea.addEventListener('input', function() {
+                    state.userNotes[questionNumber] = this.value;
+                    saveNotesRecord();
                 });
             });
         }
@@ -368,6 +401,21 @@
                 });
             }
         }
+        
+        // 儲存筆記記錄
+        function saveNotesRecord() {
+            if (state.currentQuizId) {
+                // 儲存筆記記錄
+                const allNotes = JSON.parse(localStorage.getItem('quizNotes') || '{}');
+                allNotes[state.currentQuizId] = state.userNotes;
+                localStorage.setItem('quizNotes', JSON.stringify(allNotes));
+                
+                console.log('筆記記錄已儲存:', {
+                    quizId: state.currentQuizId,
+                    notes: state.userNotes
+                });
+            }
+        }
 
         // 載入歷史測驗
         function loadQuizHistory() {
@@ -381,6 +429,7 @@
             }
             
             const allAnswers = JSON.parse(localStorage.getItem('quizAnswers') || '{}');
+            const allNotes = JSON.parse(localStorage.getItem('quizNotes') || '{}');
             
             history.forEach(quiz => {
                 const item = document.createElement('div');
@@ -389,6 +438,7 @@
                 const previewText = quiz.questions.split('\n')[0].substring(0, 50);
                 const date = new Date(quiz.createdAt).toLocaleString();
                 const hasAnswers = allAnswers[quiz.id] && Object.keys(allAnswers[quiz.id]).length > 0;
+                const hasNotes = allNotes[quiz.id] && Object.keys(allNotes[quiz.id]).length > 0;
                 
                 item.innerHTML = `
                     <strong>測驗 ${new Date(quiz.createdAt).toLocaleDateString()}</strong>
@@ -398,6 +448,7 @@
                         <button onclick="loadQuiz('${quiz.id}', event)">載入</button>
                         <button onclick="deleteQuiz('${quiz.id}', event)">刪除測驗</button>
                         ${hasAnswers ? `<button onclick="deleteQuizAnswers('${quiz.id}', event)" class="secondary-btn">清除作答</button>` : ''}
+                        ${hasNotes ? `<button onclick="deleteQuizNotes('${quiz.id}', event)" class="secondary-btn">清除筆記</button>` : ''}
                     </div>
                 `;
                 
@@ -433,23 +484,27 @@
         function deleteQuiz(quizId, event) {
             if (event) event.stopPropagation();
             
-            if (!confirm('確定要刪除這個測驗嗎？這將同時刪除相關的作答記錄。')) return;
+            if (!confirm('確定要刪除這個測驗嗎？這將同時刪除相關的作答記錄和筆記。')) return;
             
             // 刪除測驗
             let history = JSON.parse(localStorage.getItem('quizHistory') || '[]');
             history = history.filter(q => q.id !== quizId);
             localStorage.setItem('quizHistory', JSON.stringify(history));
             
-            // 刪除相關作答記錄
+            // 刪除相關作答記錄和筆記
             const allAnswers = JSON.parse(localStorage.getItem('quizAnswers') || '{}');
+            const allNotes = JSON.parse(localStorage.getItem('quizNotes') || '{}');
             delete allAnswers[quizId];
+            delete allNotes[quizId];
             localStorage.setItem('quizAnswers', JSON.stringify(allAnswers));
+            localStorage.setItem('quizNotes', JSON.stringify(allNotes));
             
             // 如果刪除的是當前測驗，清除相關狀態
             if (state.currentQuizId === quizId) {
                 state.currentQuizId = null;
                 state.quizData = [];
                 state.userAnswers = {};
+                state.userNotes = {};
             }
             
             loadQuizHistory();
@@ -473,20 +528,43 @@
             
             loadQuizHistory();
         }
+        
+        // 刪除筆記記錄
+        function deleteQuizNotes(quizId, event) {
+            if (event) event.stopPropagation();
+            
+            if (!confirm('確定要清除這份測驗的筆記記錄嗎？')) return;
+            
+            const allNotes = JSON.parse(localStorage.getItem('quizNotes') || '{}');
+            delete allNotes[quizId];
+            localStorage.setItem('quizNotes', JSON.stringify(allNotes));
+            
+            // 如果清除的是當前測驗，重置筆記狀態
+            if (state.currentQuizId === quizId) {
+                state.userNotes = {};
+                renderQuiz();
+            }
+            
+            loadQuizHistory();
+        }
 
         // 清除當前作答記錄
         function clearCurrentAnswers() {
-            if (!state.currentQuizId || !confirm('確定要清除當前測驗的作答記錄嗎？')) return;
+            if (!state.currentQuizId || !confirm('確定要清除當前測驗的作答記錄和筆記嗎？')) return;
             
             state.userAnswers = {};
+            state.userNotes = {};
             
             // 更新儲存
             const allAnswers = JSON.parse(localStorage.getItem('quizAnswers') || '{}');
+            const allNotes = JSON.parse(localStorage.getItem('quizNotes') || '{}');
             allAnswers[state.currentQuizId] = {};
+            allNotes[state.currentQuizId] = {};
             localStorage.setItem('quizAnswers', JSON.stringify(allAnswers));
+            localStorage.setItem('quizNotes', JSON.stringify(allNotes));
             
             renderQuiz();
-            alert('作答記錄已清除');
+            alert('作答記錄和筆記已清除');
         }
 
         // 解析題目
@@ -689,9 +767,11 @@
                     };
                 }).sort((a, b) => a.number - b.number);
                 
-                // 載入之前的作答記錄
+                // 載入之前的作答記錄和筆記
                 const allAnswers = JSON.parse(localStorage.getItem('quizAnswers') || '{}');
+                const allNotes = JSON.parse(localStorage.getItem('quizNotes') || '{}');
                 state.userAnswers = allAnswers[state.currentQuizId] || {};
+                state.userNotes = allNotes[state.currentQuizId] || {};
                 
                 // 儲存狀態
                 state.lastEdit = state.currentQuizContent;
@@ -735,6 +815,7 @@
             
             state.quizData.forEach((q) => {
                 const userAnswer = state.userAnswers[q.number] || "";
+                const userNote = state.userNotes[q.number] || "";
                 
                 resultHTML += `<li><p>${q.number}. ${q.question.replace(/\n/g, '<br>')}</p>`;
                 resultHTML += userAnswer ? `<p>你的選擇: ${userAnswer}</p>` : `<p>未作答</p>`;
@@ -757,6 +838,10 @@
                     }
                 }
                 
+                if (userNote) {
+                    resultHTML += `<div class="explanation">你的筆記：${userNote.replace(/\n/g, '<br>')}</div>`;
+                }
+                
                 if (q.explanation) {
                     resultHTML += `<div class="explanation">詳解：${q.explanation.replace(/\n/g, '<br>')}</div>`;
                 }
@@ -773,6 +858,7 @@
             document.getElementById("result").scrollIntoView({ behavior: "smooth" });
             
             saveAnswerRecord();
+            saveNotesRecord();
         }
 
         // 返回編輯
@@ -792,12 +878,14 @@
         function exportData() {
             const quizHistory = JSON.parse(localStorage.getItem('quizHistory') || '[]');
             const quizAnswers = JSON.parse(localStorage.getItem('quizAnswers') || '{}');
+            const quizNotes = JSON.parse(localStorage.getItem('quizNotes') || '{}');
             const lastEdit = localStorage.getItem('lastEdit');
             const lastQuiz = localStorage.getItem('lastQuiz');
             
             const exportData = {
                 quizHistory,
                 quizAnswers,
+                quizNotes,
                 lastEdit: lastEdit ? JSON.parse(lastEdit) : null,
                 lastQuiz: lastQuiz ? JSON.parse(lastQuiz) : null,
                 exportedAt: new Date().toISOString()
@@ -835,6 +923,7 @@
                     // 合併現有資料
                     const currentHistory = JSON.parse(localStorage.getItem('quizHistory') || '[]');
                     const currentAnswers = JSON.parse(localStorage.getItem('quizAnswers') || '{}');
+                    const currentNotes = JSON.parse(localStorage.getItem('quizNotes') || '{}');
                     
                     // 合併測驗歷史，避免重複ID
                     const newHistory = [...currentHistory];
@@ -850,9 +939,18 @@
                         newAnswers[quizId] = data.quizAnswers[quizId];
                     });
                     
+                    // 合併筆記記錄
+                    const newNotes = { ...currentNotes };
+                    if (data.quizNotes) { // 檢查是否有筆記資料
+                        Object.keys(data.quizNotes).forEach(quizId => {
+                            newNotes[quizId] = data.quizNotes[quizId];
+                        });
+                    }
+                    
                     // 儲存合併後的資料
                     localStorage.setItem('quizHistory', JSON.stringify(newHistory));
                     localStorage.setItem('quizAnswers', JSON.stringify(newAnswers));
+                    localStorage.setItem('quizNotes', JSON.stringify(newNotes));
                     
                     // 如果有最後編輯和最後測驗資料，也一併更新
                     if (data.lastEdit) {
@@ -874,6 +972,13 @@
                                 if (data.id === state.currentQuizId) {
                                     state.quizData = data.quizData;
                                     state.currentQuizContent = data.content;
+                                    
+                                    // 載入作答記錄和筆記
+                                    const allAnswers = JSON.parse(localStorage.getItem('quizAnswers') || '{}');
+                                    const allNotes = JSON.parse(localStorage.getItem('quizNotes') || '{}');
+                                    state.userAnswers = allAnswers[state.currentQuizId] || {};
+                                    state.userNotes = allNotes[state.currentQuizId] || {};
+                                    
                                     renderQuiz();
                                 }
                             } catch (e) {
