@@ -29,15 +29,15 @@
             padding: 10px 15px;
             font-size: 16px;
             cursor: pointer;
-            background-color: #4CAF50;
-            color: white;
+            background-color: #f0f0f0;
+            color: #333;
             border: none;
             border-radius: 5px;
             margin-right: 10px;
             margin-bottom: 10px;
         }
         button:hover {
-            background-color: #45a049;
+            background-color: #e0e0e0;
         }
         #quiz-container {
             display: none;
@@ -59,8 +59,6 @@
             background-color: #f0f0f0;
         }
         .submit-bar {
-            position: sticky;
-            top: 0;
             background: white;
             padding: 10px 0;
             z-index: 10;
@@ -107,16 +105,6 @@
         .history-item:hover {
             background-color: #f0f0f0;
         }
-        .answer-status {
-            margin-left: 10px;
-            font-size: 0.8em;
-        }
-        .answered {
-            color: #4CAF50;
-        }
-        .not-answered {
-            color: #f44336;
-        }
         .history-actions {
             margin-top: 10px;
             display: flex;
@@ -126,9 +114,6 @@
         .secondary-btn {
             background-color: #f0f0f0;
             color: #333;
-        }
-        .danger-btn {
-            background-color: #f44336;
         }
     </style>
 </head>
@@ -256,11 +241,8 @@
                 div.classList.add("question");
                 
                 const savedAnswer = state.userAnswers[q.number];
-                const answerStatus = savedAnswer 
-                    ? `<span class="answer-status answered">已作答: ${savedAnswer}</span>`
-                    : `<span class="answer-status not-answered">未作答</span>`;
                 
-                div.innerHTML = `<p><strong>${q.number}.</strong> ${q.question.replace(/\n/g, '<br>')} ${answerStatus}</p>`;
+                div.innerHTML = `<p><strong>${q.number}.</strong> ${q.question.replace(/\n/g, '<br>')}</p>`;
                 
                 if (q.options.length === 0) {
                     div.innerHTML += `<p style="color:red;">警告：此題沒有找到選項</p>`;
@@ -286,14 +268,6 @@
                     const questionNumber = this.name.substring(1);
                     state.userAnswers[questionNumber] = this.value;
                     saveAnswerRecord();
-                    
-                    // 更新作答狀態顯示
-                    const questionDiv = this.closest('.question');
-                    const answerStatus = questionDiv.querySelector('.answer-status');
-                    if (answerStatus) {
-                        answerStatus.innerHTML = `已作答: ${this.value}`;
-                        answerStatus.className = 'answer-status answered';
-                    }
                 });
             });
         }
@@ -383,7 +357,7 @@
                     <small>${date}</small>
                     <div class="history-actions">
                         <button onclick="loadQuiz('${quiz.id}', event)">載入</button>
-                        <button onclick="deleteQuiz('${quiz.id}', event)" class="danger-btn">刪除測驗</button>
+                        <button onclick="deleteQuiz('${quiz.id}', event)">刪除測驗</button>
                         ${hasAnswers ? `<button onclick="deleteQuizAnswers('${quiz.id}', event)" class="secondary-btn">清除作答</button>` : ''}
                     </div>
                 `;
