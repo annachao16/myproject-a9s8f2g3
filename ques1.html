@@ -115,6 +115,24 @@
             background-color: #f0f0f0;
             color: #333;
         }
+        .sync-section {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .sync-status {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #666;
+        }
+        .sync-success {
+            color: green;
+        }
+        .sync-error {
+            color: red;
+        }
     </style>
 </head>
 <body>
@@ -154,6 +172,17 @@
             <button id="generate-quiz-btn">產生測驗介面</button>
             <button id="save-quiz-btn">儲存當前測驗</button>
             <button id="clear-answers-btn" class="secondary-btn">清除作答記錄</button>
+        </div>
+        
+        <div class="sync-section">
+            <h3>雲端同步</h3>
+            <p>使用雲端同步功能可以在不同裝置間共享測驗資料</p>
+            <div>
+                <button id="export-data-btn">匯出資料</button>
+                <button id="import-data-btn">匯入資料</button>
+                <input type="file" id="import-file-input" style="display: none;" accept=".json">
+            </div>
+            <div id="sync-status" class="sync-status"></div>
         </div>
         
         <div class="history-section">
@@ -222,6 +251,16 @@
                     console.error('載入最後測驗失敗:', e);
                 }
             }
+            
+            // 事件監聽
+            document.getElementById('generate-quiz-btn').addEventListener('click', generateQuiz);
+            document.getElementById('save-quiz-btn').addEventListener('click', saveCurrentQuiz);
+            document.getElementById('clear-answers-btn').addEventListener('click', clearCurrentAnswers);
+            document.getElementById('export-data-btn').addEventListener('click', exportData);
+            document.getElementById('import-data-btn').addEventListener('click', () => {
+                document.getElementById('import-file-input').click();
+            });
+            document.getElementById('import-file-input').addEventListener('change', importData);
         });
 
         // 顯示測驗介面
@@ -697,7 +736,7 @@
             state.quizData.forEach((q) => {
                 const userAnswer = state.userAnswers[q.number] || "";
                 
-                resultHTML += `<li><p>${q.question.replace(/\n/g, '<br>')}</p>`;
+                resultHTML += `<li><p>${q.number}. ${q.question.replace(/\n/g, '<br>')}</p>`;
                 resultHTML += userAnswer ? `<p>你的選擇: ${userAnswer}</p>` : `<p>未作答</p>`;
                 
                 if (q.answer) {
@@ -749,10 +788,124 @@
             }
         }
 
-        // 事件監聽
-        document.getElementById('generate-quiz-btn').addEventListener('click', generateQuiz);
-        document.getElementById('save-quiz-btn').addEventListener('click', saveCurrentQuiz);
-        document.getElementById('clear-answers-btn').addEventListener('click', clearCurrentAnswers);
+        // 匯出資料
+        function exportData() {
+            const quizHistory = JSON.parse(localStorage.getItem('quizHistory') || '[]');
+            const quizAnswers = JSON.parse(localStorage.getItem('quizAnswers') || '{}');
+            const lastEdit = localStorage.getItem('lastEdit');
+            const lastQuiz = localStorage.getItem('lastQuiz');
+            
+            const exportData = {
+                quizHistory,
+                quizAnswers,
+                lastEdit: lastEdit ? JSON.parse(lastEdit) : null,
+                lastQuiz: lastQuiz ? JSON.parse(lastQuiz) : null,
+                exportedAt: new Date().toISOString()
+            };
+            
+            const dataStr = JSON.stringify(exportData, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `quiz_data_${new Date().toISOString().slice(0, 10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            updateSyncStatus('資料匯出成功', 'sync-success');
+        }
+
+        // 匯入資料
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    
+                    // 驗證資料格式
+                    if (!Array.isArray(data.quizHistory) || typeof data.quizAnswers !== 'object') {
+                        throw new Error('檔案格式不正確');
+                    }
+                    
+                    // 合併現有資料
+                    const currentHistory = JSON.parse(localStorage.getItem('quizHistory') || '[]');
+                    const currentAnswers = JSON.parse(localStorage.getItem('quizAnswers') || '{}');
+                    
+                    // 合併測驗歷史，避免重複ID
+                    const newHistory = [...currentHistory];
+                    data.quizHistory.forEach(quiz => {
+                        if (!newHistory.some(q => q.id === quiz.id)) {
+                            newHistory.push(quiz);
+                        }
+                    });
+                    
+                    // 合併作答記錄
+                    const newAnswers = { ...currentAnswers };
+                    Object.keys(data.quizAnswers).forEach(quizId => {
+                        newAnswers[quizId] = data.quizAnswers[quizId];
+                    });
+                    
+                    // 儲存合併後的資料
+                    localStorage.setItem('quizHistory', JSON.stringify(newHistory));
+                    localStorage.setItem('quizAnswers', JSON.stringify(newAnswers));
+                    
+                    // 如果有最後編輯和最後測驗資料，也一併更新
+                    if (data.lastEdit) {
+                        localStorage.setItem('lastEdit', JSON.stringify(data.lastEdit));
+                    }
+                    if (data.lastQuiz) {
+                        localStorage.setItem('lastQuiz', JSON.stringify(data.lastQuiz));
+                    }
+                    
+                    updateSyncStatus('資料匯入成功', 'sync-success');
+                    loadQuizHistory();
+                    
+                    // 重新載入當前測驗
+                    if (state.currentQuizId) {
+                        const lastQuiz = localStorage.getItem('lastQuiz');
+                        if (lastQuiz) {
+                            try {
+                                const data = JSON.parse(lastQuiz);
+                                if (data.id === state.currentQuizId) {
+                                    state.quizData = data.quizData;
+                                    state.currentQuizContent = data.content;
+                                    renderQuiz();
+                                }
+                            } catch (e) {
+                                console.error('重新載入當前測驗失敗:', e);
+                            }
+                        }
+                    }
+                    
+                    alert('資料匯入成功！');
+                } catch (error) {
+                    console.error('匯入資料失敗:', error);
+                    updateSyncStatus('匯入失敗: ' + error.message, 'sync-error');
+                }
+            };
+            reader.readAsText(file);
+            
+            // 重置input以便再次選擇相同檔案
+            event.target.value = '';
+        }
+
+        // 更新同步狀態
+        function updateSyncStatus(message, className) {
+            const statusElement = document.getElementById('sync-status');
+            statusElement.textContent = message;
+            statusElement.className = 'sync-status ' + (className || '');
+            
+            // 3秒後清除狀態
+            setTimeout(() => {
+                statusElement.textContent = '';
+                statusElement.className = 'sync-status';
+            }, 3000);
+        }
     </script>
 </body>
 </html>
