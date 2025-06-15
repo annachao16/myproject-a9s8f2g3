@@ -678,7 +678,7 @@
                 
                 // 處理選項行
                 if (currentQuestion) {
-                    if (/\([A-D]\)/.test(line)) {
+                    if (/^[A-D]\./.test(line) || /\([A-D]\)/.test(line)) {
                         extractOptions(line, currentQuestion);
                     } else {
                         currentQuestion.text += '\n' + line;
@@ -693,36 +693,61 @@
                 // 改進的選項解析邏輯，能正確處理選項內容中的括號
                 let pos = 0;
                 while (pos < line.length) {
-                    const optionStart = line.indexOf('(', pos);
-                    if (optionStart === -1) break;
-                    
-                    const optionLetter = line[optionStart + 1];
-                    if (!['A','B','C','D'].includes(optionLetter)) {
-                        pos = optionStart + 1;
+                    // 處理 A. 格式的選項
+                    const optionDotMatch = line.substring(pos).match(/^([A-D])\.\s*/);
+                    if (optionDotMatch) {
+                        const optionLetter = optionDotMatch[1];
+                        const optionStart = pos + optionDotMatch[0].length;
+                        let optionEnd = line.length;
+                        
+                        // 找下一個選項的開始位置
+                        for (let j = optionStart; j < line.length; j++) {
+                            if (line.substring(j).match(/^([A-D])\.\s*/)) {
+                                optionEnd = j;
+                                break;
+                            }
+                        }
+                        
+                        const optionText = line.substring(optionStart, optionEnd).trim();
+                        if (optionText) {
+                            question.options.push({
+                                letter: optionLetter,
+                                text: optionText
+                            });
+                        }
+                        
+                        pos = optionEnd;
                         continue;
                     }
                     
-                    const optionEnd = line.indexOf(')', optionStart);
-                    if (optionEnd === -1) break;
-                    
-                    // 找下一個選項的開始位置
-                    let nextOptionStart = line.indexOf('(', optionEnd + 1);
-                    while (nextOptionStart !== -1 && !['A','B','C','D'].includes(line[nextOptionStart + 1])) {
-                        nextOptionStart = line.indexOf('(', nextOptionStart + 1);
+                    // 處理 (A) 格式的選項
+                    const optionParenMatch = line.substring(pos).match(/^\(([A-D])\)/);
+                    if (optionParenMatch) {
+                        const optionLetter = optionParenMatch[1];
+                        const optionStart = pos + optionParenMatch[0].length;
+                        let optionEnd = line.length;
+                        
+                        // 找下一個選項的開始位置
+                        for (let j = optionStart; j < line.length; j++) {
+                            if (line.substring(j).match(/^\(([A-D])\)/)) {
+                                optionEnd = j;
+                                break;
+                            }
+                        }
+                        
+                        const optionText = line.substring(optionStart, optionEnd).trim();
+                        if (optionText) {
+                            question.options.push({
+                                letter: optionLetter,
+                                text: optionText
+                            });
+                        }
+                        
+                        pos = optionEnd;
+                        continue;
                     }
                     
-                    const optionText = nextOptionStart === -1 
-                        ? line.substring(optionEnd + 1).trim()
-                        : line.substring(optionEnd + 1, nextOptionStart).trim();
-                    
-                    if (optionText) {
-                        question.options.push({
-                            letter: optionLetter,
-                            text: optionText
-                        });
-                    }
-                    
-                    pos = nextOptionStart === -1 ? line.length : nextOptionStart;
+                    pos++;
                 }
             }
         }
