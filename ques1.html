@@ -329,11 +329,10 @@
                     });
                 }
                 
-                // 添加筆記區域
+                // 添加筆記區域（已移除標題）
                 div.innerHTML += `
                     <div class="notes-section">
-                        <label for="note-${q.number}">筆記：</label>
-                        <textarea id="note-${q.number}" placeholder="在此輸入你的筆記...">${savedNote}</textarea>
+                        <textarea id="note-${q.number}">${savedNote}</textarea>
                     </div>
                 `;
                 
@@ -965,11 +964,10 @@
                 resultHTML += `<h4>得分：${score} / ${totalScorableQuestions} (${percentage}%)</h4>`;
             }
             
-            // 新增總結筆記區塊
+            // 新增總結筆記區塊（已移除標題）
             resultHTML += `
                 <div class="summary-notes">
-                    <h4>總結筆記</h4>
-                    <textarea id="summary-note" placeholder="在此輸入你的總結筆記...">${state.summaryNote}</textarea>
+                    <textarea id="summary-note">${state.summaryNote}</textarea>
                 </div>
             `;
             
