@@ -37,7 +37,7 @@
             margin-bottom: 10px;
         }
         button:hover {
-            background-color: #e0e0e0;
+            background-color: #e0e0f0;
         }
         #quiz-container {
             display: none;
@@ -161,12 +161,21 @@
             border-radius: 4px;
             resize: vertical;
         }
+        .countdown-container {
+            margin: 20px auto;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
 
     <div id="creator-container">
         <h1>測驗產生器</h1>
+        
+        <!-- 倒數計時器 - 編輯界面 -->
+        <div class="countdown-container">
+            <iframe id="online-alarm-kur-iframe-edit" src="https://embed-countdown.onlinealarmkur.com/zh-tw/#2025-07-25T00:00:00@Asia%2FTaipei" width="330" height="60" style="display: block; margin: 0px auto; border: 0px;"></iframe>
+        </div>
         
         <div class="input-section">
             <h3>題目輸入</h3>
@@ -223,6 +232,11 @@
         <div class="submit-bar">
             <button onclick="submitQuiz()">送出答案</button>
             <button onclick="backToEdit()" class="back-to-edit">返回編輯</button>
+        </div>
+
+        <!-- 倒數計時器 - 測驗界面 -->
+        <div class="countdown-container">
+            <iframe id="online-alarm-kur-iframe-quiz" src="https://embed-countdown.onlinealarmkur.com/zh-tw/#2025-07-25T00:00:00@Asia%2FTaipei" width="330" height="60" style="display: block; margin: 0px auto; border: 0px;"></iframe>
         </div>
 
         <h2 style="border-bottom: none; padding-bottom: 0;">測驗題目</h2>
@@ -329,7 +343,7 @@
                     });
                 }
                 
-                // 添加筆記區域（已移除標題）
+                // 添加筆記區域
                 div.innerHTML += `
                     <div class="notes-section">
                         <textarea id="note-${q.number}">${savedNote}</textarea>
@@ -964,7 +978,7 @@
                 resultHTML += `<h4>得分：${score} / ${totalScorableQuestions} (${percentage}%)</h4>`;
             }
             
-            // 新增總結筆記區塊（已移除標題）
+            // 新增總結筆記區塊
             resultHTML += `
                 <div class="summary-notes">
                     <textarea id="summary-note">${state.summaryNote}</textarea>
