@@ -163,7 +163,7 @@
             resize: vertical;
         }
         
-        /* 時鐘和倒數計時器樣式 */
+        /* 時鐘樣式 */
         .time-display {
             width: 600px;
             margin: 0 auto;
@@ -182,61 +182,14 @@
             letter-spacing: 4px;
             margin-bottom: 12px;
         }
-        .countdown-container {
-            display: flex;
-            justify-content: center;
-            gap: 12px;
-            font-family: monospace;
-            color: black;
-            background: white;
-            width: 100%;
-            margin-top: -20px; /* 減少間距 */
-        }
-        .time-block {
-            text-align: center;
-        }
-        .countdown-number {
-            font-weight: 300;
-            font-size: 48px;
-            line-height: 60px;
-            width: 70px;
-            margin: 0 auto;
-            letter-spacing: 0;
-        }
-        .countdown-label {
-            font-weight: 300;
-            font-size: 13px;
-            margin-top: -6px;
-            width: 60px;
-            margin-left: auto;
-            margin-right: auto;
-        }
     </style>
 </head>
 <body>
 
     <div id="creator-container">
-        <!-- 時鐘和倒數計時器 -->
+        <!-- 時鐘 -->
         <div class="time-display">
             <div class="clock" id="clock"></div>
-            <div class="countdown-container">
-                <div class="time-block">
-                    <div class="countdown-number" id="d">00</div>
-                    <div class="countdown-label">天</div>
-                </div>
-                <div class="time-block">
-                    <div class="countdown-number" id="h">00</div>
-                    <div class="countdown-label">小時</div>
-                </div>
-                <div class="time-block">
-                    <div class="countdown-number" id="m">00</div>
-                    <div class="countdown-label">分鐘</div>
-                </div>
-                <div class="time-block">
-                    <div class="countdown-number" id="s">00</div>
-                    <div class="countdown-label">秒</div>
-                </div>
-            </div>
         </div>
         
         <h1>測驗產生器</h1>
@@ -293,27 +246,9 @@
     </div>
 
     <div id="quiz-container">
-        <!-- 時鐘和倒數計時器 -->
+        <!-- 時鐘 -->
         <div class="time-display">
             <div class="clock" id="quiz-clock"></div>
-            <div class="countdown-container">
-                <div class="time-block">
-                    <div class="countdown-number" id="quiz-d">00</div>
-                    <div class="countdown-label">天</div>
-                </div>
-                <div class="time-block">
-                    <div class="countdown-number" id="quiz-h">00</div>
-                    <div class="countdown-label">小時</div>
-                </div>
-                <div class="time-block">
-                    <div class="countdown-number" id="quiz-m">00</div>
-                    <div class="countdown-label">分鐘</div>
-                </div>
-                <div class="time-block">
-                    <div class="countdown-number" id="quiz-s">00</div>
-                    <div class="countdown-label">秒</div>
-                </div>
-            </div>
         </div>
         
         <div class="submit-bar">
@@ -347,28 +282,10 @@
             document.getElementById('quiz-clock').textContent = now.toLocaleTimeString('zh-TW', { hour12: false });
             setTimeout(updateClock, 1000 - now.getMilliseconds());
         }
-        
-        // 倒數計時器功能
-        const target = new Date('2025-07-25T00:00:00+08:00');
-        function updateCountdown() {
-            const s = Math.max(0, Math.floor((target - new Date()) / 1000));
-            document.getElementById('d').textContent = String(Math.floor(s / 86400)).padStart(2, '0');
-            document.getElementById('h').textContent = String(Math.floor(s % 86400 / 3600)).padStart(2, '0');
-            document.getElementById('m').textContent = String(Math.floor(s % 3600 / 60)).padStart(2, '0');
-            document.getElementById('s').textContent = String(s % 60).padStart(2, '0');
-            
-            document.getElementById('quiz-d').textContent = String(Math.floor(s / 86400)).padStart(2, '0');
-            document.getElementById('quiz-h').textContent = String(Math.floor(s % 86400 / 3600)).padStart(2, '0');
-            document.getElementById('quiz-m').textContent = String(Math.floor(s % 3600 / 60)).padStart(2, '0');
-            document.getElementById('quiz-s').textContent = String(s % 60).padStart(2, '0');
-            
-            setTimeout(updateCountdown, 1000 - new Date().getMilliseconds());
-        }
 
         // 初始化
         document.addEventListener('DOMContentLoaded', function() {
             updateClock();
-            updateCountdown();
             loadQuizHistory();
             
             // 嘗試載入最後編輯的測驗
